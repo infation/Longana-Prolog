@@ -4,6 +4,16 @@ ask_tscore(X) :-
     read(X), 
     nl.
 
+print_tile([First, Second | Rest]) :- 
+    write(First), 
+    write('-'), 
+    write(Second), 
+    write(' ').
+
+print_list([]).
+print_list([First | Rest]) :-
+    print_tile(First),
+    print_list(Rest).
 
 init_deck(Deck) :- 
     D = [[0,0],[0,1],[0,2],[0,3],[0,4],[0,5],[0,6],
@@ -15,12 +25,30 @@ init_deck(Deck) :-
             [6,6]],
     random_permutation(D, Deck).
 
+add_tile(List, Tile, NewList):-
+    append(Tile, List, NewList).
 
-init_hands(CHand, Phand):-
+draw(Tile, [First | Rest], NewDeck):-
+    Tile = First,
+    NewDeck = Rest.
 
-                
+%Initialize the hands of the players
+init_hands([], [], _ , 0).
+init_hands([First | HNewRest], [Second | CNewRest], [First, Second | Rest], N) :-
+    NewN is N-1,
+    init_hands(HNewRest, CNewRest, Rest, NewN).
 
-%deck(Result) :- Result := [[0-1],[0-2],[0-3],[0-4],[0-5],[0,6]].          
-?- init_deck(Deck), write(Deck).
-%main :- initialize_deck(Deck), write(Deck), halt.
+%Initialize a round
+init_game(Hhand, Chand, Deck, Tscore):-
+    ask_tscore(Tscore),
+    init_deck(D),
+    %write(D), nl,
+    init_hands(Hhand, Chand, D, 8),
+    length(X, 16),
+    append(X, Deck, D).
+
+
+?- init_game(Hhand, Chand, Deck, Tscore), 
+            print_list(Hhand),
+            halt.
 %?- ask_tscore(Tscore), write(Tscore), halt.
