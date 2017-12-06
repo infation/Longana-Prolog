@@ -1,25 +1,36 @@
 %Ask the user for tournament score in the beginning of the tournament
 ask_tscore(X) :-
-    write('Enter Tournament Score: '), 
-    read(X), 
+    write('Enter Tournament Score (1-500): '), 
+    read(N),
+    integer(N),
+    validate(N, 500),
+    X = N, 
     nl.
+
+ask_tscore(X) :-
+    write('Wrong input. '), nl,
+    ask_tscore(X).
 
 %Ask the user to choose a tile from his/her hand
 choose_tile(X, Hhand) :-
     write('Choose a tile to play from (1-'),
-    len(Hhand, Length),
+    length(Hhand, Length),
     write(Length),
     write('): '), 
     read(N),
-    X is N-1,  
+    integer(N),
+    validate(N, Length),
+    X is N-1, 
     nl.
 
-%To find the length of any list 
-len([], LenResult):-
-    LenResult is 0.
-len([First | Rest], LenResult):-
-    len(Rest, L),
-    LenResult is L + 1.
+
+choose_tile(X, Hhand) :- 
+    write('Wrong input. '), nl,
+    choose_tile(X, Hhand).
+
+validate(N, End) :- 
+    N >= 1,  
+    N =< End.
 
 %To print the tile's contents
 print_tile([]).
@@ -63,10 +74,6 @@ init_deck(Deck) :-
             [6,6]],
     random_permutation(D, Deck).
 
-%To add a tile in a list
-add_tile(List, Tile, NewList):-
-    append(List, [Tile], NewList).
-
 %To draw the first tile from the deck
 draw(Tile, [First | Rest], NewDeck):-
     Tile = First,
@@ -86,12 +93,12 @@ init_game(Hhand, Chand, Deck, Tscore):-
     length(X, 16),
     append(X, Deck, D).
 
-%Play a tile at a specified index
-play_tile_at(Tile, Hhand, Index, NewHand):-
-    get_tile_at(Tile, Index, Hhand),
-    remove_tile_at(Hhand, Index, NewHand).
-    %remove_tile_at(Hand, Index, NewHand).
+%To add a tile in a list
+add_tile_left(List, Tile, [Tile|List]).
+add_tile_right(List, Tile, NewList):-
+    append(List, [Tile], NewList).
 
+switch_pips([First|[Second|_]], [Second|[First]]).
 
 %Remove tile at a specified index
 remove_tile_at([],_,[]) :- write('Index out of bounds'), nl.
@@ -104,13 +111,51 @@ remove_tile_at([First | Rest], N , [First | NewRest]) :-
 get_tile_at(Tile, Index, List):-
     nth0(Index, List, Tile).
 
+check_placement(Tile, left, Board, NewTile) :-
+    length(Board, L),
+    L = 0,
+    NewTile = Tile.
+
+check_placement([Pip1|[Pip2|_]], left, Board, NewTile) :-
+    get_tile_at([First|_], 0, Board),
+    First = Pip2,
+    NewTile = [Pip1|[Pip2]].
+
+check_placement([Pip1|Pip2], left, Board, NewTile) :-
+    get_tile_at([First|_], 0, Board),
+    First = Pip1,
+    switch_pips([Pip1|Pip2], NewTile).
+
+
+check_placement([Pip1|Pip2], right, Board, NewTile) :-
+    length(Board, L),
+    Index is L - 1,
+    get_tile_at([_|[Second|_]], Index , Board),
+    Second = Pip1,
+    NewTile = [Pip1|Pip2].
+
+check_placement([Pip1|[Pip2|_]], right, Board, NewTile) :-
+    length(Board, L),
+    Index is L - 1,
+    get_tile_at([_|[Second|_]], Index, Board),
+    Second = Pip2,
+    switch_pips([Pip1|[Pip2]], NewTile).
+
 human_play(Hhand, Board, NewHand, NewBoard):-
     choose_tile(Index, Hhand),
-    play_tile_at(Tile, Hhand, Index, NewHand),
-    add_tile(Board, Tile, NewBoard).
+    %NewIndex is Index - 1,
+    get_tile_at(Tile, Index , Hhand),
+    check_placement(Tile, left, Board, NewTile),
+    remove_tile_at(Hhand, Index, NewHand),
+    add_tile_left(Board, NewTile, NewBoard).
+
+%human_play(Hhand, Board, NewHand, NewBoard):-
+%    write('Invalid move.'), nl,
+%    human_play(Hhand, Board, NewHand, NewBoard).
 
 round(Hhand, Chand, Deck, Tscore) :- 
     init_game(Hhand, Chand, Deck, Tscore), 
+    print_state(Hhand, Chand, Deck, []),
     round(Hhand,Chand, Deck, [], Tscore, 0).
 
 round(Hhand, Chand, Deck, Board, Tscore, N) :-
