@@ -11,20 +11,26 @@ ask_tscore(X) :-
     write('Wrong tournamen score input. '), nl,
     ask_tscore(X).
 
-ask_side_placement(X) :-
+ask_side_placement(X, Tile, IsPassed) :-
+    is_double(Tile),
     write('Do you want to place it on the (left/right)? : '),
     read(N), nl,
     validate_side(N),
     X = N.
 
-ask_side_placement(_) :-
-    write('Wrong side placement. '), nl,
-    ask_side_placement(_).   
-
+ask_side_placement(X, Tile, IsPassed) :-
+    IsPassed,
+    write('Do you want to place it on the (left/right)? : '),
+    read(N), nl,
+    validate_side(N),
+    X = N.
+ask_side_placement(_,_,_).
  
 validate_side(left).
 validate_side(right).
-
+validate_side(_):- 
+    write('Wrong side placement. '), nl,
+    ask_side_placement(_, _, _).
 %Ask the user to choose a tile from his/her hand
 choose_tile(X, Hhand) :-
     write('Choose a tile to play from (1-'),
@@ -125,7 +131,7 @@ add_tile(List, _, Tile, [Tile|List]).
 
 
 switch_pips([First|[Second|_]], [Second|[First]]).
-is_double([Pip1,[Pip2|_]]):- Pip1 = Pip2.
+is_double([Pip1 | [Pip2|_]]):- Pip1 = Pip2.
 
 
 %Remove tile at a specified index
@@ -183,14 +189,12 @@ check_both_sides(Tile, Board):- check_placement(Tile, _, Board, _).
 
 
 
-
+is_move_possible(Tile, _, Board, _):-
+    is_double(Tile),
+    check_both_sides(Tile, Board).
 
 is_move_possible(Tile, _, Board, IsPassed):-
     IsPassed,
-    check_both_sides(Tile, Board).
-
-is_move_possible(Tile, _, Board, _):-
-    is_double(Tile),
     check_both_sides(Tile, Board).
 
 is_move_possible(Tile, Side, Board, _):-
@@ -198,22 +202,50 @@ is_move_possible(Tile, Side, Board, _):-
 
 
 
+check_available_moves([], _, _, _):- fail.
+check_available_moves([Tile|_], Board, Side, IsPassed):-
+    is_move_possible(Tile, Side, Board, IsPassed),
+    print(Tile).
+
+ check_available_moves([_|Rest], Board, Side, IsPassed):-
+    check_available_moves(Rest, Board, Side, IsPassed).   
+
+%computer_play(Chand, Board).
 
 
-
-
-
-
-human_play(Hhand, Board, NewHand, NewBoard):-
+human_play(Hhand, Board, Deck,  CompPassed, NewHand, NewBoard, NewDeck, HumanPassed):-
+    check_available_moves(Hhand, Board, left, CompPassed),
     choose_tile(Index, Hhand),
     get_tile_at(Tile, Index , Hhand),
-    IsPassed = true,
-    is_move_possible(Tile, left, Board, IsPassed),
-    ask_side_placement(Side),
+    is_move_possible(Tile, _, Board, CompPassed),
+    ask_side_placement(Side, Tile, CompPassed),
     check_placement(Tile, Side, Board, NewTile),
     remove_tile_at(Hhand, Index, NewHand),
-    add_tile(Board, Side, NewTile, NewBoard).
+    add_tile(Board, Side, NewTile, NewBoard),
+    HumanPassed = fail,
+    NewDeck = Deck.
 
+
+human_play(Hhand, Board, Deck , CompPassed, NewHand, NewBoard, NewDeck, HumanPassed):-
+    draw(Tile, Deck, NewDeck),
+    write('No available moves, Drawing tile from the deck'), nl,
+    write('You drew: '), print_tile(Tile), nl,
+    is_move_possible(Tile, _, Board, CompPassed),
+    ask_side_placement(Side, Tile, CompPassed),
+    check_placement(Tile, Side, Board, NewTile),
+    %remove_tile_at(NewHand, , NewHand),
+    add_tile(Board, Side, NewTile, NewBoard),
+    NewHand = Hhand,
+    HumanPassed = fail,
+    NewDeck = Deck.
+
+human_play(Hhand,Board,Deck,_,NewHand,NewBoard,NewDeck,HumanPassed):-
+    print_list(Hhand),nl,
+    write('You couldnt play the drawn tile.'),
+    draw(Tile, Deck, NewDeck),
+    add_tile(Hhand, right, Tile, NewHand),
+    NewBoard = Board,
+    HumanPassed = true.
 %human_play(Hhand, Board, NewHand, NewBoard):-
 %    write('Invalid move.'), nl,
 %    human_play(Hhand, Board, NewHand, NewBoard).
@@ -221,22 +253,16 @@ human_play(Hhand, Board, NewHand, NewBoard):-
 
 
 
-
-
-
-
-
 round(Hhand, Chand, Deck, Tscore) :- 
     init_game(Hhand, Chand, Deck, Tscore), 
     print_state(Hhand, Chand, Deck, []),
-    round(Hhand,Chand, Deck, [], Tscore, 0).
+    round(Hhand,Chand, Deck, [], Tscore).
 
-round(Hhand, Chand, Deck, Board, Tscore, N) :-
-    N < 10,
-    human_play(Hhand, Board, NewHand, NewBoard),
-    print_state(NewHand, Chand, Deck, NewBoard),
-    NewN is N+1,
-    round(NewHand, Chand, Deck, NewBoard, Tscore, NewN).
+round(Hhand, Chand, Deck, Board, Tscore) :-
+    human_play(Hhand, Board, Deck, fail, NewHand, NewBoard, NewDeck, HumanPassed),
+    write(HumanPassed),
+    print_state(NewHand, Chand, NewDeck, NewBoard),
+    round(NewHand, Chand, NewDeck, NewBoard, Tscore).
 
 ?- round(_,_,_,_). 
 
